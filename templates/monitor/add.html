@@ -1,0 +1,41 @@
+{% extends "monitor/base.html" %}
+{% load static from staticfiles %}
+<!-- {% load static  %} -->
+
+{% block mytitle %}
+    添加主机-监控中心
+{% endblock %}
+{% block mainbody %}
+    <ol class="breadcrumb">
+        <li><a href="{% url "index" %}">Home</a></li>
+        <li class="active">添加主机</li>
+    </ol>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-4 col-lg-offset-4">
+                <h3>输入主机信息</h3><br>
+        <form id="add_host" action="{% url 'monitor_insert' %}" class="form-horizontal" method="post" onsubmit="return check()">
+            {% csrf_token %}
+            <div class="input-group">
+                <span class="input-group-addon" id="basic-addon1">标签</span>
+                <input type="text" id="tag" name="tag" class="form-control" placeholder="必填,如: 服务器01" >
+            </div>
+            <br>
+            <div class="input-group">
+                <span class="input-group-addon" id="basic-addon1">地址</span>
+                <input type="text" id=" ip" name="ip" class="form-control" placeholder="必填,如: 192.168.1.1" >
+            </div>
+            <br>
+            <div class="input-group">
+                <span class="input-group-addon" id="basic-addon1"> 端口</span>
+                <input type="text" class="form-control" placeholder="缺省值：22" >
+            </div>
+            <br>
+            <div align="center">
+                <button type="submit" class="btn btn-primary">确定</button>
+            </div>
+
+        
+        
+        </form>
+{% endblock %}

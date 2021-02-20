@@ -1,0 +1,395 @@
+{% extends "monitor/base.html" %}
+{% load static from staticfiles %}
+<!-- {% load static  %} -->
+{% block mytitle %}
+    详情-监控中心
+{% endblock %}
+
+{% block mainbody %}
+
+    <ol class="breadcrumb">
+        <li><a href="{% url "index" %}">Home</a></li>
+        <li class="active">Details</li>
+    </ol>
+
+    <div class="container">
+        <div class="now">
+            <div class="col-md-8 col-md-offect-0">
+                <div class="panel panel-primary">
+                    <table class="table">
+                        <tr>
+                            <td>总览</td>
+                            <td> 标签</td>
+                            <td> ip地址</td>
+                            <td> CPU核数</td>
+                            <td> 内存大小</td>
+                            <td> 硬盘大小</td>
+                        </tr>
+                        <tr>
+                            <td>信息</td>
+                            <td> {{host.tag}} </td>
+                            <td> {{host.ip}}</td>
+                            <td><span id="cpu_count">{{host.cpu}}</span> 核</td>
+                            <td><span id="mem_tatal">{{host.mem}}</span> GB</td>
+                            <td><span id="disk_total">{{host.disk}}</span> GB</td>
+                        </tr>
+                        <tr>
+                            <td>使用率</td>
+                            <td> </td>
+                            <td> </td>
+                            <td><span id="cpu_percent">0</span> %</td>
+                            <td><span id="mem_percent">0</span> %</td>
+                            <td><span id="disk_percent">0</span> %</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md">
+                    <div id="main_cpu" style="height:400px"></div>
+                </div>
+                <div class="col-md">
+                    <div id="main_mem" style="height:400px"></div>
+                </div>
+                <div class="col-md">
+                    <div id="main_disk" style="height:400px"></div>
+                </div>
+            </div>
+            <p>
+                <button type="button" id="getInfoBtn" class="btn btn-primary" > 刷新</button>
+            </p>
+            <p id="showArea"> </p>
+        </div>
+    </div>
+
+    <script src="http://echarts.baidu.com/build/dist/echarts.js"></script>
+    <script type="text/javascript">
+
+        var myChart_cpu;
+        var myChart_mem;
+        var myChart_disk;
+        var infoObj;
+        var cpuPoints = [0,0,0,0,0,0,0,0,0,0,0];
+        var memPoints = [0,0,0,0,0,0,0,0,0,0,0];
+        var diskPoints = [0,0,0,0,0,0,0,0,0,0,0];
+
+        var timer;
+
+        function zeroize(num,n) {
+            return (Array(n).join(0) + num).slice(-n);
+        }
+
+        /* 返回横坐标时间轴，参数是时间间隔，单位秒 */
+        function getTimes(interval) {
+            var now = Date.now();
+            var dates = [
+                new Date(now - interval*12*1000),
+                new Date(now - interval*11*1000),
+                new Date(now - interval*10*1000),
+                new Date(now - interval*9*1000),
+                new Date(now - interval*8*1000),
+                new Date(now - interval*7*1000),
+                new Date(now - interval*6*1000),
+                new Date(now - interval*5*1000),
+                new Date(now - interval*4*1000),
+                new Date(now - interval*3*1000),
+                new Date(now - interval*2*1000),
+                new Date(now - interval*1*1000),
+                new Date(now)
+            ];
+            var xD = new Array(13);
+            for (var i=0;i<xD.length;i++) {
+                xD[i] = zeroize(dates[i].getHours(),2) + ':'
+                        + zeroize(dates[i].getMinutes(),2) + ':'
+                        + zeroize(dates[i].getSeconds(),2);
+            }
+            return xD;
+        }
+
+        require.config({
+            paths: {
+                echarts: 'http://echarts.baidu.com/build/dist'
+            }
+        });
+        require(
+            [
+                'echarts',
+                'echarts/chart/line' // 使用柱状图就加载bar模块，按需加载
+            ],
+            function (ec) {
+                // 基于准备好的dom，初始化echarts图表
+                console.log(document.getElementById('main_cpu'))
+                myChart_cpu = ec.init(document.getElementById('main_cpu'));
+                console.log(document.getElementById('main_mem'))
+                myChart_mem = ec.init(document.getElementById('main_mem'));
+                console.log(document.getElementById('main_disk'))
+                myChart_disk = ec.init(document.getElementById('main_disk'));
+
+
+                var option_cpu = {
+                    tooltip: {
+                        trigger: 'axis'
+                    },
+                    legend: {
+                        data: ['CPU使用率']
+                    },
+                    calculable: true,
+                    xAxis: [
+                        {
+                            type: 'category',
+                            boundaryGap: false,
+                            name: '时间',
+                            data: getTimes({{ interval }})
+                        }
+                    ],
+                    yAxis: [
+                        {
+                            type: 'value',
+                            name: '使用率',
+                            min: 0,
+                            max: 100
+                        }
+                    ],
+                    series: [
+                        {
+                            name: 'CPU使用率',
+                            type: 'line',
+                            stack: '总量',
+                            data: cpuPoints
+                        },
+                    ]
+                };
+                var option_mem = {
+                    tooltip: {
+                        trigger: 'axis'
+                    },
+                    legend: {
+                        data: ['内存使用率']
+                    },
+                    calculable: true,
+                    xAxis: [
+                        {
+                            type: 'category',
+                            boundaryGap: false,
+                            name: '时间',
+                            data: getTimes({{ interval }})
+                        }
+                    ],
+                    yAxis: [
+                        {
+                            type: 'value',
+                            name: '使用率',
+                            min: 0,
+                            max: 100
+                        }
+                    ],
+                    series: [
+                        {
+                            name: '内存使用率',
+                            type: 'line',
+                            stack: '总量',
+                            data: memPoints
+                        },
+                    ]
+                };
+                var option_disk = {
+                    tooltip: {
+                        trigger: 'axis'
+                    },
+                    legend: {
+                        data: ['硬盘使用率']
+                    },
+                    calculable: true,
+                    xAxis: [
+                        {
+                            type: 'category',
+                            boundaryGap: false,
+                            name: '时间',
+                            data: getTimes({{ interval }})
+                        }
+                    ],
+                    yAxis: [
+                        {
+                            type: 'value',
+                            name: '使用率',
+                            min: 0,
+                            max: 100
+                        }
+                    ],
+                    series: [
+                        {
+                            name: '硬盘使用率',
+                            type: 'line',
+                            stack: '总量',
+                            data: diskPoints
+                        },
+                    ]
+                };
+                // 为echarts对象加载数据
+                myChart_cpu.setOption(option_cpu);
+                myChart_mem.setOption(option_mem);
+                myChart_disk.setOption(option_disk);
+
+
+            }
+        );
+
+        function updateInfo() {
+            getInfo()
+
+            var option_cpu = {
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['cpu 使用率']
+                },
+                calculable: true,
+                xAxis: [
+                    {
+                        type: 'category',
+                        boundaryGap: false,
+                        name: '时间',
+                        data: getTimes({{ interval }})
+                    }
+                ],
+                yAxis: [
+                    {
+                        type: 'values',
+                        name: '使用率',
+                        min: 0,
+                        max: 100
+                    }
+                ],
+                series: [
+                    {
+                        name:'cpu 使用率',
+                        type: 'line',
+                        stack: '总量',
+                        data: cpuPoints
+                    },
+                ]
+            };
+            var option_mem = {
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['内存使用率']
+                },
+                calculable: true,
+                xAxis: [
+                    {
+                        type: 'category',
+                        boundaryGap: false,
+                        name: '时间',
+                        data: getTimes({{ interval }})
+                    }
+                ],
+                yAxis: [
+                    {
+                        type: 'values',
+                        name: '使用率',
+                        min: 0,
+                        max: 100
+                    }
+                ],
+                series: [
+                    {
+                        name:'内存使用率',
+                        type: 'line',
+                        stack: '总量',
+                        data: memPoints
+                    },
+                ]
+            };
+            var option_disk = {
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['硬盘使用率']
+                },
+                calculable: true,
+                xAxis: [
+                    {
+                        type: 'category',
+                        boundaryGap: false,
+                        name: '时间',
+                        data: getTimes({{ interval }})
+                    }
+                ],
+                yAxis: [
+                    {
+                        type: 'values',
+                        name: '使用率',
+                        min: 0,
+                        max: 100
+                    }
+                ],
+                series: [
+                    {
+                        name:'硬盘使用率',
+                        type: 'line',
+                        stack: '总量',
+                        data: diskPoints
+                    },
+                ]
+            };
+            // myChart.setOption(option); 
+            myChart_cpu.setOption(option_cpu);
+            myChart_mem.setOption(option_mem);
+            myChart_disk.setOption(option_disk);
+
+        }
+
+        function getInfo() {
+            $.ajax({
+                type: "GET",
+                url: "{% url 'getHostStat' host.ip %}",
+                dataType: "json",
+                async: true,
+
+                beforeSend: function() {
+                    console.log("loading...");
+                },
+
+                error: function() {
+                    console.log("error");
+                    alert("{{ host.ip}} 用户的 SSH 链接失败\n 请检查远程链接是否正常！");
+                    clearInterval(timer);
+                
+                },
+
+                success: function (result) {
+                    console.log('result: '+result);
+                    infoObj = JSON.parse(JSON.stringify(result));
+                    
+                    $("#cpu_count").html(infoObj.cpu_count);
+                    $("#cpu_percent").html(infoObj.cpu_percent);
+                    $("#mem_total").html(Math.round(infoObj.mem_total/1024/1024/1024));
+                    $("#mem_percent").html(infoObj.mem_percent);
+                    $("#disk_total").html(Math.round(infoObj.disk_total/1024/1024/1024));
+                    $("#disk_percent").html(infoObj.disk_percent);
+
+                    cpuPoints.shift();
+                    cpuPoints.push(infoObj.cpu_percent);
+                    memPoints.shift();
+                    memPoints.push(infoObj.mem_percent);
+                    diskPoints.shift();
+                    diskPoints.push(infoObj.disk_percent);
+
+                }
+            })
+        }
+
+        $('getInfoBtn').click(updateInfo);
+
+        $(function () {
+            getInfo();
+            timer = self.setInterval(updateInfo, {% widthratio interval 1 1000 %});
+            
+        })
+    </script>
+
+{% endblock %}
+{% block myjs %}
+{% endblock %}
